@@ -1,0 +1,33 @@
+[package]
+name = "App"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+eframe = { version = "*", default-features = false, features = [
+    "default_fonts",
+    "glow",
+    "persistence",
+] }
+tokio = { version = "*", features = ["full"] }
+parse-display = "*"
+serde = { version = "*", features = ["derive"] }
+
+itertools = "*"
+
+# fontawesome-fonts = { path = "../Scalpel/fontawesome-fonts", default-features = false, features = [
+#     "pro_solid",
+#     "brands_regular",
+# ] }
+#async  socks5
+fast-socks5 = "*"
+
+#async ssh
+russh = { version = "*" }
+russh-keys = { version = "*" }
+
+serde_json = "*"
+uuid = { version = "*", features = ["serde", "v4"] }
