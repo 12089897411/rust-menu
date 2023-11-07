@@ -1,4 +1,4 @@
-use eframe::egui::Widget;
+use eframe::egui::{Id, Widget};
 
 use sense::SenseExt;
 
@@ -79,62 +79,88 @@ impl eframe::App for HomePage {
             let response = eframe::egui::TextEdit::multiline(&mut self.text)
                 .show(ui)
                 .response;
+            response.md_context_menu(|ui| {
+                if ui
+                    .menu_item_icon_and_text("Cut".into(), "📋", vec![eframe::egui::Key::A], true)
+                    .clicked()
+                {};
+                ui.sub_menu_item_icon_and_text("Copy ", "📋", true, |ui| {
+                    if ui
+                        .menu_item_with_text("Copy Body", vec![eframe::egui::Key::C], true)
+                        .clicked()
+                    {}
+                    if ui
+                        .menu_item_with_text("Copy Right", vec![eframe::egui::Key::C], true)
+                        .clicked()
+                    {}
+                    if ui
+                        .menu_item_with_text("Copy dd", vec![eframe::egui::Key::C], true)
+                        .clicked()
+                    {}
+                });
+                if ui
+                    .menu_item_icon_and_text(
+                        "Delete".into(),
+                        "📋",
+                        vec![eframe::egui::Key::A],
+                        true,
+                    )
+                    .clicked()
+                {};
+            });
         });
     }
 }
 
 pub struct ContextMenuBuilder {
     id: eframe::egui::Id,
-    pos2: Option<eframe::epaint::Pos2>,
-    max_size: Option<eframe::egui::Vec2>,
 }
 impl ContextMenuBuilder {
     pub fn new(id: eframe::egui::Id) -> Self {
-        Self {
-            pos2: None,
-            id,
-            max_size: None,
-        }
-    }
-
-    pub fn pos2(mut self, pos2: eframe::epaint::Pos2) -> Self {
-        self.pos2 = Some(pos2);
-        self
+        Self { id }
     }
 }
 impl ContextMenuBuilder {
-    pub fn ui(
+    pub fn ui<'c, R>(
         self,
-        ui: &mut eframe::egui::Ui,
-        add_contents: impl FnOnce(&mut eframe::egui::Ui),
-    ) -> eframe::egui::Response {
-        let ContextMenuBuilder { pos2, id, max_size } = self;
-        let max_size = max_size.unwrap_or(eframe::egui::vec2(300., 0.));
-        let fill = eframe::egui::Color32::from_rgb(23, 29, 30);
-        let pos2 = pos2.unwrap_or(eframe::egui::Pos2::ZERO);
-        let resp = eframe::egui::Area::new(id)
-            .fixed_pos(pos2)
-            .interactable(true)
-            .order(eframe::egui::Order::Foreground)
-            .show(ui.ctx(), |ui| {
-                ui.add_sized(max_size, |ui: &mut eframe::egui::Ui| {
-                    eframe::egui::Frame {
-                        inner_margin: eframe::egui::Margin::same(5.),
-                        outer_margin: eframe::egui::Margin::same(0.),
-                        rounding: eframe::egui::Rounding::same(10.),
-                        shadow: eframe::epaint::Shadow::NONE,
-                        fill,
-                        stroke: eframe::egui::Stroke::NONE,
-                    }
-                    .show(ui, |ui| {
-                        ui.vertical(|ui| add_contents(ui));
-                    })
-                    .response
-                });
-            })
-            .set_sense(ui, eframe::egui::Sense::click());
+        response: &eframe::egui::Response,
+        add_contents: impl FnOnce(&mut eframe::egui::Ui) -> R + 'c,
+    ) -> Option<eframe::egui::InnerResponse<R>> {
+        let ContextMenuBuilder { id } = self;
 
-        resp
+        let fill = eframe::egui::Color32::from_rgb(23, 29, 30);
+        if response.secondary_clicked() {
+            response.ctx.push_menu_pos(response.interact_pointer_pos())
+        }
+        if let Some(Some(pos2)) = response.ctx.get_menu_pos() {
+            Some(
+                eframe::egui::Area::new(id)
+                    .fixed_pos(pos2)
+                    .interactable(true)
+                    .order(eframe::egui::Order::Foreground)
+                    .show(&response.ctx, |ui| {
+                        ui.set_max_size(eframe::egui::vec2(300., 0.));
+                        eframe::egui::Frame {
+                            inner_margin: eframe::egui::Margin::same(5.),
+                            outer_margin: eframe::egui::Margin::same(0.),
+                            rounding: eframe::egui::Rounding::same(10.),
+                            shadow: eframe::epaint::Shadow::NONE,
+                            fill,
+                            stroke: eframe::egui::Stroke::NONE,
+                        }
+                        .show(ui, |ui| {
+                            ui.with_layout(
+                                eframe::egui::Layout::top_down(eframe::emath::Align::Center),
+                                add_contents,
+                            )
+                            .inner
+                        })
+                    })
+                    .inner,
+            )
+        } else {
+            None
+        }
     }
 }
 
@@ -170,10 +196,8 @@ impl MenuItemBuilder {
             enable,
         }
     }
-    pub fn shortcut(mut self, shortcut: Option<eframe::egui::Key>) -> Self {
-        if let Some(shortcut) = shortcut {
-            self.shortcut.push(shortcut);
-        }
+    pub fn shortcut(mut self, shortcut: Vec<eframe::egui::Key>) -> Self {
+        self.shortcut = shortcut;
 
         self
     }
@@ -278,7 +302,7 @@ impl SubMenuItemBuilder {
         self,
         ui: &mut eframe::egui::Ui,
         add_contents: impl FnOnce(&mut eframe::egui::Ui),
-    ) -> eframe::egui::Response {
+    ) -> eframe::egui::InnerResponse<Option<eframe::egui::InnerResponse<()>>> {
         let SubMenuItemBuilder {
             label,
             icon,
@@ -292,83 +316,82 @@ impl SubMenuItemBuilder {
                 bottom: 5.,
             })
             .rounding(eframe::egui::Rounding::same(5.));
-        ui.with_layout(
-            eframe::egui::Layout::left_to_right(eframe::emath::Align::Min),
-            |ui| {
-                let resp = frame
-                    .show(ui, |ui| {
-                        ui.add_enabled_ui(enable, |ui| {
-                            ui.with_layout(
-                                eframe::egui::Layout::left_to_right(eframe::emath::Align::Center),
-                                |ui| {
-                                    if let Some(icon) = &icon {
-                                        ui.allocate_ui(eframe::egui::vec2(10.0, 10.0), |ui| {
-                                            ui.label(icon);
-                                        });
-                                    }
 
-                                    if let Some(text) = label {
-                                        ui.label(text);
-                                    }
-                                    ui.with_layout(
-                                        eframe::egui::Layout::right_to_left(
-                                            eframe::emath::Align::Center,
-                                        ),
-                                        |ui| {
-                                            ui.label(eframe::egui::RichText::new(">"));
-                                        },
-                                    );
+        let resp = frame
+            .show(ui, |ui| {
+                ui.add_enabled_ui(enable, |ui| {
+                    ui.with_layout(
+                        eframe::egui::Layout::left_to_right(eframe::emath::Align::Center),
+                        |ui| {
+                            if let Some(icon) = &icon {
+                                ui.allocate_ui(eframe::egui::vec2(10.0, 10.0), |ui| {
+                                    ui.label(icon);
+                                });
+                            }
+
+                            if let Some(text) = label {
+                                ui.label(text);
+                            }
+                            ui.with_layout(
+                                eframe::egui::Layout::right_to_left(eframe::emath::Align::Center),
+                                |ui| {
+                                    ui.label(eframe::egui::RichText::new(">"));
                                 },
                             );
-                        })
-                    })
-                    .set_sense(ui, eframe::egui::Sense::click());
-
-                let rect = ui
-                    .get_sub_menu_rect()
-                    .and_then(|f| f.expand(5.).check_pos(ui))
-                    .unwrap_or_default();
-
-                if resp.hovered() || rect {
-                    ui.painter().rect(
-                        resp.rect,
-                        eframe::egui::Rounding::same(5.),
-                        eframe::egui::Color32::from_rgba_premultiplied(23, 29, 30, 10),
-                        eframe::egui::Stroke::NONE,
+                        },
                     );
+                })
+            })
+            .set_sense(ui, eframe::egui::Sense::click());
 
-                    let resp = eframe::egui::Area::new("id")
-                        .fixed_pos(resp.rect.right_top())
-                        .interactable(true)
-                        .order(eframe::egui::Order::Foreground)
-                        .show(ui.ctx(), |ui| {
-                            ui.add_sized([300., 0.], |ui: &mut eframe::egui::Ui| {
-                                eframe::egui::Frame {
-                                    inner_margin: eframe::egui::Margin::same(5.),
-                                    outer_margin: eframe::egui::Margin::same(0.),
-                                    rounding: eframe::egui::Rounding::same(10.),
-                                    shadow: eframe::epaint::Shadow::NONE,
-                                    fill: eframe::egui::Color32::from_rgba_premultiplied(
-                                        23, 29, 30, 0,
-                                    ),
-                                    stroke: eframe::egui::Stroke::NONE,
-                                }
-                                .show(ui, |ui| {
-                                    ui.with_layout(
-                                        eframe::egui::Layout::top_down(eframe::emath::Align::LEFT),
-                                        |ui| add_contents(ui),
-                                    );
-                                })
-                                .response
-                            });
+        let state = ui
+            .ctx()
+            .get_sub_menu_rect()
+            .and_then(|f| f.expand(5.).check_pos(ui))
+            .unwrap_or_default();
+
+        let response = if resp.hovered() || state {
+            ui.painter().rect(
+                resp.rect,
+                eframe::egui::Rounding::same(5.),
+                eframe::egui::Color32::from_rgba_premultiplied(23, 29, 30, 10),
+                eframe::egui::Stroke::NONE,
+            );
+            let pos = [resp.rect.right_top().x, resp.rect.right_top().y - 5.];
+
+            let resp = eframe::egui::Area::new("sub_menu_id")
+                .fixed_pos(pos)
+                .interactable(true)
+                .order(eframe::egui::Order::Foreground)
+                .show(ui.ctx(), |ui| {
+                    ui.allocate_ui([300., 0.].into(), |ui| {
+                        eframe::egui::Frame {
+                            inner_margin: eframe::egui::Margin::same(5.),
+                            outer_margin: eframe::egui::Margin::same(0.),
+                            rounding: eframe::egui::Rounding::same(10.),
+                            shadow: eframe::epaint::Shadow::NONE,
+                            fill: eframe::egui::Color32::from_rgb(23, 29, 30),
+                            stroke: eframe::egui::Stroke::NONE,
+                        }
+                        .show(ui, |ui| {
+                            ui.with_layout(
+                                eframe::egui::Layout::top_down_justified(
+                                    eframe::emath::Align::LEFT,
+                                ),
+                                add_contents,
+                            )
+                            .inner
                         })
-                        .set_sense(ui, eframe::egui::Sense::hover());
-
-                    ui.push_sub_menu_rect(resp.rect)
-                }
-            },
-        )
-        .response
+                        .inner
+                    })
+                    .inner
+                });
+            ui.ctx().push_sub_menu_rect(resp.response.rect);
+            Some(resp)
+        } else {
+            None
+        };
+        eframe::egui::InnerResponse::new(response, resp)
     }
 }
 
@@ -377,20 +400,20 @@ pub trait MenuItem {
         &mut self,
         text: &str,
         icon: &str,
-        shortcut: Option<eframe::egui::Key>,
+        shortcut: Vec<eframe::egui::Key>,
         enable: bool,
     ) -> eframe::egui::Response;
 
     fn menu_item_with_text(
         &mut self,
         text: &str,
-        shortcut: Option<eframe::egui::Key>,
+        shortcut: Vec<eframe::egui::Key>,
         enable: bool,
     ) -> eframe::egui::Response;
     fn menu_item_with_icon(
         &mut self,
         icon: &str,
-        shortcut: Option<eframe::egui::Key>,
+        shortcut: Vec<eframe::egui::Key>,
         enable: bool,
     ) -> eframe::egui::Response;
     fn sub_menu_item_icon_and_text(
@@ -399,27 +422,26 @@ pub trait MenuItem {
         icon: &str,
         enable: bool,
         add_contents: impl FnOnce(&mut eframe::egui::Ui),
-    ) -> eframe::egui::Response;
+    ) -> eframe::egui::InnerResponse<Option<eframe::egui::InnerResponse<()>>>;
     fn sub_menu_item_with_text(
         &mut self,
         text: &str,
         enable: bool,
         add_contents: impl FnOnce(&mut eframe::egui::Ui),
-    ) -> eframe::egui::Response;
+    ) -> eframe::egui::InnerResponse<Option<eframe::egui::InnerResponse<()>>>;
     fn sub_menu_item_with_icon(
         &mut self,
         icon: &str,
         enable: bool,
         add_contents: impl FnOnce(&mut eframe::egui::Ui),
-    ) -> eframe::egui::Response;
-    fn close_context_menu(&mut self);
+    ) -> eframe::egui::InnerResponse<Option<eframe::egui::InnerResponse<()>>>;
 }
 impl MenuItem for eframe::egui::Ui {
     fn menu_item_icon_and_text(
         &mut self,
         text: &str,
         icon: &str,
-        shortcut: Option<eframe::egui::Key>,
+        shortcut: Vec<eframe::egui::Key>,
         enable: bool,
     ) -> eframe::egui::Response {
         MenuItemBuilder::new(Some(text.into()), Some(icon.into()), enable)
@@ -430,7 +452,7 @@ impl MenuItem for eframe::egui::Ui {
     fn menu_item_with_text(
         &mut self,
         text: &str,
-        shortcut: Option<eframe::egui::Key>,
+        shortcut: Vec<eframe::egui::Key>,
         enable: bool,
     ) -> eframe::egui::Response {
         MenuItemBuilder::text(text.into(), enable)
@@ -440,7 +462,7 @@ impl MenuItem for eframe::egui::Ui {
     fn menu_item_with_icon(
         &mut self,
         icon: &str,
-        shortcut: Option<eframe::egui::Key>,
+        shortcut: Vec<eframe::egui::Key>,
         enable: bool,
     ) -> eframe::egui::Response {
         MenuItemBuilder::new_icon(icon.into(), enable)
@@ -453,7 +475,7 @@ impl MenuItem for eframe::egui::Ui {
         icon: &str,
         enable: bool,
         add_contents: impl FnOnce(&mut eframe::egui::Ui),
-    ) -> eframe::egui::Response {
+    ) -> eframe::egui::InnerResponse<Option<eframe::egui::InnerResponse<()>>> {
         SubMenuItemBuilder::new(Some(text.into()), Some(icon.into()), enable)
             .show(self, add_contents)
     }
@@ -462,7 +484,7 @@ impl MenuItem for eframe::egui::Ui {
         text: &str,
         enable: bool,
         add_contents: impl FnOnce(&mut eframe::egui::Ui),
-    ) -> eframe::egui::Response {
+    ) -> eframe::egui::InnerResponse<Option<eframe::egui::InnerResponse<()>>> {
         SubMenuItemBuilder::text(Some(text.into()), enable).show(self, add_contents)
     }
     fn sub_menu_item_with_icon(
@@ -470,120 +492,118 @@ impl MenuItem for eframe::egui::Ui {
         icon: &str,
         enable: bool,
         add_contents: impl FnOnce(&mut eframe::egui::Ui),
-    ) -> eframe::egui::Response {
+    ) -> eframe::egui::InnerResponse<Option<eframe::egui::InnerResponse<()>>> {
         SubMenuItemBuilder::icon(Some(icon.into()), enable).show(self, add_contents)
     }
+}
 
-    fn close_context_menu(&mut self) {
+pub trait CloseMenu {
+    fn close_context_menu(&self);
+}
+impl CloseMenu for eframe::egui::Ui {
+    fn close_context_menu(&self) {
         self.clear_sub_menu_rect();
         self.clear_menu_pos();
     }
 }
 
 pub trait MenuUIExt {
-    fn push_menu_pos(&mut self, pos2: Option<eframe::epaint::Pos2>);
-    fn get_menu_pos(&mut self) -> Option<Option<eframe::epaint::Pos2>>;
-    fn clear_menu_pos(&mut self);
-    fn push_sub_menu_rect(&mut self, rect: eframe::egui::Rect);
-    fn get_sub_menu_rect(&mut self) -> Option<eframe::egui::Rect>;
-    fn clear_sub_menu_rect(&mut self);
+    fn push_menu_pos(&self, pos2: Option<eframe::epaint::Pos2>);
+    fn get_menu_pos(&self) -> Option<Option<eframe::epaint::Pos2>>;
+
+    fn push_sub_menu_rect(&self, rect: eframe::egui::Rect);
+    fn get_sub_menu_rect(&self) -> Option<eframe::egui::Rect>;
+    fn push_sub_menu_id(&self, id: eframe::egui::Id);
+    fn get_sub_menu_id(&self) -> Option<eframe::egui::Id>;
 }
-impl MenuUIExt for eframe::egui::Ui {
-    fn push_menu_pos(&mut self, pos2: Option<eframe::epaint::Pos2>) {
+impl MenuUIExt for eframe::egui::Context {
+    fn push_menu_pos(&self, pos2: Option<eframe::epaint::Pos2>) {
         self.memory_mut(|f| f.data.insert_temp("my_context_menu".into(), pos2))
     }
 
-    fn get_menu_pos(&mut self) -> Option<Option<eframe::epaint::Pos2>> {
+    fn get_menu_pos(&self) -> Option<Option<eframe::epaint::Pos2>> {
         self.memory(|f| f.data.get_temp("my_context_menu".into()))
     }
 
-    fn clear_menu_pos(&mut self) {
+    fn push_sub_menu_rect(&self, rect: eframe::egui::Rect) {
+        self.memory_mut(|f| f.data.insert_temp("sub_menu_rect".into(), rect))
+    }
+
+    fn get_sub_menu_rect(&self) -> Option<eframe::egui::Rect> {
+        self.memory(|f| f.data.get_temp("sub_menu_rect".into()))
+    }
+
+    fn push_sub_menu_id(&self, id: eframe::egui::Id) {
+        self.memory_mut(|f| f.data.insert_temp("sub_menu_id".into(), id))
+    }
+
+    fn get_sub_menu_id(&self) -> Option<eframe::egui::Id> {
+        self.memory(|f| f.data.get_temp("sub_menu_id".into()))
+    }
+}
+pub trait MenuUI {
+    fn clear_menu_pos(&self);
+    fn clear_sub_menu_rect(&self);
+}
+impl MenuUI for eframe::egui::Ui {
+    fn clear_menu_pos(&self) {
         self.memory_mut(|f| {
             f.data
                 .remove::<Option<eframe::egui::Pos2>>("my_context_menu".into())
         })
     }
 
-    fn push_sub_menu_rect(&mut self, rect: eframe::egui::Rect) {
-        self.memory_mut(|f| f.data.insert_temp("sub_menu_rect".into(), rect))
-    }
-
-    fn get_sub_menu_rect(&mut self) -> Option<eframe::egui::Rect> {
-        self.memory(|f| f.data.get_temp("sub_menu_rect".into()))
-    }
-
-    fn clear_sub_menu_rect(&mut self) {
+    fn clear_sub_menu_rect(&self) {
         self.memory_mut(|f| f.data.remove::<eframe::egui::Rect>("sub_menu_rect".into()))
     }
 }
 pub trait ContextMenuExt {
-    fn md_context_menu(
+    fn md_context_menu<R>(
         self,
-        ui: &mut eframe::egui::Ui,
-        add_contents: impl FnOnce(&mut eframe::egui::Ui),
-    ) -> Option<eframe::egui::Response>;
+        add_contents: impl FnOnce(&mut eframe::egui::Ui) -> R,
+    ) -> Option<eframe::egui::InnerResponse<R>>;
 }
 impl ContextMenuExt for eframe::egui::Response {
-    fn md_context_menu(
+    fn md_context_menu<R>(
         self,
-        ui: &mut eframe::egui::Ui,
-        add_contents: impl FnOnce(&mut eframe::egui::Ui),
-    ) -> Option<eframe::egui::Response> {
-        if self.secondary_clicked() {
-            ui.push_menu_pos(self.interact_pointer_pos())
-        }
-        let pos2 = ui.get_menu_pos();
-        let resp = if let Some(Some(pos2)) = pos2 {
-            Some(
-                ContextMenuBuilder::new("my_context_menu".into())
-                    .pos2(pos2)
-                    .ui(ui, add_contents),
-            )
-        } else {
-            None
-        };
-        if let Some(response) = &resp {
-            if response.clicked_elsewhere() {
-                ui.close_context_menu();
-            }
-        }
-
-        resp
+        add_contents: impl FnOnce(&mut eframe::egui::Ui) -> R,
+    ) -> Option<eframe::egui::InnerResponse<R>> {
+        ContextMenuBuilder::new("my_context_menu".into()).ui(&self, add_contents)
     }
 }
 
-pub trait ContextMenu {
-    fn md_context_menu(
-        &mut self,
-        add_contents: impl FnOnce(&mut eframe::egui::Ui),
-    ) -> Option<eframe::egui::Response>;
-}
-impl ContextMenu for eframe::egui::Ui {
-    fn md_context_menu(
-        &mut self,
-        add_contents: impl FnOnce(&mut eframe::egui::Ui),
-    ) -> Option<eframe::egui::Response> {
-        if self.input(|f| f.pointer.secondary_clicked()) {
-            self.push_menu_pos(self.input(|f| f.pointer.interact_pos()))
-        }
-        let pos2 = self.get_menu_pos();
-        let resp = if let Some(Some(pos2)) = pos2 {
-            Some(
-                ContextMenuBuilder::new("my_context_menu".into())
-                    .pos2(pos2)
-                    .ui(self, add_contents),
-            )
-        } else {
-            None
-        };
-        if let Some(response) = &resp {
-            if response.clicked_elsewhere() {
-                self.close_context_menu();
-            }
-        }
-        resp
-    }
-}
+// pub trait ContextMenu {
+//     fn md_context_menu(
+//         &mut self,
+//         add_contents: impl FnOnce(&mut eframe::egui::Ui),
+//     ) -> Option<eframe::egui::Response>;
+// }
+// impl ContextMenu for eframe::egui::Ui {
+//     fn md_context_menu(
+//         &mut self,
+//         add_contents: impl FnOnce(&mut eframe::egui::Ui),
+//     ) -> Option<eframe::egui::Response> {
+//         if self.input(|f| f.pointer.secondary_clicked()) {
+//             self.push_menu_pos(self.input(|f| f.pointer.interact_pos()))
+//         }
+//         let pos2 = self.get_menu_pos();
+//         let resp = if let Some(Some(pos2)) = pos2 {
+//             Some(
+//                 ContextMenuBuilder::new("my_context_menu".into())
+//                     .pos2(pos2)
+//                     .ui(self, add_contents),
+//             )
+//         } else {
+//             None
+//         };
+//         if let Some(response) = &resp {
+//             if response.clicked_elsewhere() {
+//                 self.close_context_menu();
+//             }
+//         }
+//         resp
+//     }
+// }
 
 pub trait PosExt {
     fn mouse_pos(&self) -> Option<eframe::epaint::Pos2>;
