@@ -45,14 +45,14 @@ async fn main() {
 
             let mut fonts = eframe::egui::FontDefinitions::default();
 
-            fonts.font_data.insert(
-                "FONT_PRO_SOLID".to_owned(),
-                eframe::egui::FontData::from_static(fontawesome_fonts::FONT_PRO_SOLID),
-            );
-            fonts.font_data.insert(
-                "FONT_BRANDS_REGULAR".to_owned(),
-                eframe::egui::FontData::from_static(fontawesome_fonts::FONT_BRANDS_REGULAR),
-            );
+            // fonts.font_data.insert(
+            //     "FONT_PRO_SOLID".to_owned(),
+            //     eframe::egui::FontData::from_static(fontawesome_fonts::FONT_PRO_SOLID),
+            // );
+            // fonts.font_data.insert(
+            //     "FONT_BRANDS_REGULAR".to_owned(),
+            //     eframe::egui::FontData::from_static(fontawesome_fonts::FONT_BRANDS_REGULAR),
+            // );
 
             let list = fonts
                 .families
