@@ -18,10 +18,10 @@ serde = { version = "*", features = ["derive"] }
 
 itertools = "*"
 
-# fontawesome-fonts = { path = "../Scalpel/fontawesome-fonts", default-features = false, features = [
-#     "pro_solid",
-#     "brands_regular",
-# ] }
+fontawesome-fonts = { path = "../../../../project/rust-project/Scalpel/fontawesome-fonts", default-features = false, features = [
+    "pro_solid",
+    "brands_regular",
+] }
 #async  socks5
 fast-socks5 = "*"
 
