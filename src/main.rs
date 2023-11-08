@@ -81,20 +81,36 @@ impl eframe::App for HomePage {
                 .response;
             response.md_context_menu(|ui| {
                 if ui
-                    .menu_item_icon_and_text("Cut".into(), "📋", vec![eframe::egui::Key::A], true)
+                    .menu_item_icon_and_text("Cut".into(), "✂", vec![eframe::egui::Key::A], true)
                     .clicked()
                 {};
                 ui.sub_menu_item_icon_and_text("Copy ", "📋", true, |ui| {
                     if ui
                         .menu_item_with_text("Copy Body", vec![eframe::egui::Key::C], true)
                         .clicked()
-                    {}
+                    {
+                        println!("1");
+                    }
                     if ui
                         .menu_item_with_text("Copy Right", vec![eframe::egui::Key::C], true)
                         .clicked()
                     {}
                     if ui
                         .menu_item_with_text("Copy dd", vec![eframe::egui::Key::C], true)
+                        .clicked()
+                    {}
+                });
+                ui.sub_menu_item_icon_and_text("Save", "☺", true, |ui| {
+                    if ui
+                        .menu_item_with_text("Save Body", vec![eframe::egui::Key::C], true)
+                        .clicked()
+                    {}
+                    if ui
+                        .menu_item_with_text("Save Right", vec![eframe::egui::Key::C], true)
+                        .clicked()
+                    {}
+                    if ui
+                        .menu_item_with_text("Save dd", vec![eframe::egui::Key::C], true)
                         .clicked()
                     {}
                 });
@@ -108,6 +124,10 @@ impl eframe::App for HomePage {
                     .clicked()
                 {};
             });
+            // response.context_menu(|ui| {
+            //     ui.menu_button("O", |ui| ui.button("1"));
+            //     ui.menu_button("B", |ui| ui.button("2"));
+            // });
         });
     }
 }
@@ -133,31 +153,32 @@ impl ContextMenuBuilder {
             response.ctx.push_menu_pos(response.interact_pointer_pos())
         }
         if let Some(Some(pos2)) = response.ctx.get_menu_pos() {
-            Some(
-                eframe::egui::Area::new(id)
-                    .fixed_pos(pos2)
-                    .interactable(true)
-                    .order(eframe::egui::Order::Foreground)
-                    .show(&response.ctx, |ui| {
-                        ui.set_max_size(eframe::egui::vec2(300., 0.));
-                        eframe::egui::Frame {
-                            inner_margin: eframe::egui::Margin::same(5.),
-                            outer_margin: eframe::egui::Margin::same(0.),
-                            rounding: eframe::egui::Rounding::same(10.),
-                            shadow: eframe::epaint::Shadow::NONE,
-                            fill,
-                            stroke: eframe::egui::Stroke::NONE,
-                        }
-                        .show(ui, |ui| {
-                            ui.with_layout(
-                                eframe::egui::Layout::top_down(eframe::emath::Align::Center),
-                                add_contents,
-                            )
-                            .inner
-                        })
+            let resp = eframe::egui::Area::new(id)
+                .fixed_pos(pos2)
+                .interactable(true)
+                .order(eframe::egui::Order::Foreground)
+                .show(&response.ctx, |ui| {
+                    ui.set_max_size(eframe::egui::vec2(300., 0.));
+                    eframe::egui::Frame {
+                        inner_margin: eframe::egui::Margin::same(5.),
+                        outer_margin: eframe::egui::Margin::same(0.),
+                        rounding: eframe::egui::Rounding::same(10.),
+                        shadow: eframe::epaint::Shadow::NONE,
+                        fill,
+                        stroke: eframe::egui::Stroke::NONE,
+                    }
+                    .show(ui, |ui| {
+                        ui.with_layout(
+                            eframe::egui::Layout::top_down(eframe::emath::Align::Center),
+                            add_contents,
+                        )
+                        .inner
                     })
-                    .inner,
-            )
+                });
+            if resp.response.clicked_elsewhere() {
+                response.ctx.close_context_menu();
+            }
+            Some(resp.inner)
         } else {
             None
         }
@@ -329,7 +350,7 @@ impl SubMenuItemBuilder {
                                 });
                             }
 
-                            if let Some(text) = label {
+                            if let Some(text) = &label {
                                 ui.label(text);
                             }
                             ui.with_layout(
@@ -343,11 +364,18 @@ impl SubMenuItemBuilder {
                 })
             })
             .set_sense(ui, eframe::egui::Sense::click());
+        let sub_menu_id = Id::new(label.unwrap_or_default());
 
         let state = ui
             .ctx()
             .get_sub_menu_rect()
-            .and_then(|f| f.expand(5.).check_pos(ui))
+            .and_then(|(id, rect)| {
+                if id == sub_menu_id {
+                    rect.expand(5.).check_pos(ui)
+                } else {
+                    None
+                }
+            })
             .unwrap_or_default();
 
         let response = if resp.hovered() || state {
@@ -359,7 +387,7 @@ impl SubMenuItemBuilder {
             );
             let pos = [resp.rect.right_top().x, resp.rect.right_top().y - 5.];
 
-            let resp = eframe::egui::Area::new("sub_menu_id")
+            let resp = eframe::egui::Area::new(sub_menu_id)
                 .fixed_pos(pos)
                 .interactable(true)
                 .order(eframe::egui::Order::Foreground)
@@ -386,7 +414,8 @@ impl SubMenuItemBuilder {
                     })
                     .inner
                 });
-            ui.ctx().push_sub_menu_rect(resp.response.rect);
+            ui.ctx()
+                .push_sub_menu_rect((sub_menu_id, resp.response.rect));
             Some(resp)
         } else {
             None
@@ -497,10 +526,10 @@ impl MenuItem for eframe::egui::Ui {
     }
 }
 
-pub trait CloseMenu {
+pub trait CloseMenuExt {
     fn close_context_menu(&self);
 }
-impl CloseMenu for eframe::egui::Ui {
+impl CloseMenuExt for eframe::egui::Context {
     fn close_context_menu(&self) {
         self.clear_sub_menu_rect();
         self.clear_menu_pos();
@@ -511,10 +540,11 @@ pub trait MenuUIExt {
     fn push_menu_pos(&self, pos2: Option<eframe::epaint::Pos2>);
     fn get_menu_pos(&self) -> Option<Option<eframe::epaint::Pos2>>;
 
-    fn push_sub_menu_rect(&self, rect: eframe::egui::Rect);
-    fn get_sub_menu_rect(&self) -> Option<eframe::egui::Rect>;
-    fn push_sub_menu_id(&self, id: eframe::egui::Id);
-    fn get_sub_menu_id(&self) -> Option<eframe::egui::Id>;
+    fn push_sub_menu_rect(&self, rect: (eframe::egui::Id, eframe::egui::Rect));
+    fn get_sub_menu_rect(&self) -> Option<(eframe::egui::Id, eframe::egui::Rect)>;
+
+    fn clear_menu_pos(&self);
+    fn clear_sub_menu_rect(&self);
 }
 impl MenuUIExt for eframe::egui::Context {
     fn push_menu_pos(&self, pos2: Option<eframe::epaint::Pos2>) {
@@ -525,27 +555,14 @@ impl MenuUIExt for eframe::egui::Context {
         self.memory(|f| f.data.get_temp("my_context_menu".into()))
     }
 
-    fn push_sub_menu_rect(&self, rect: eframe::egui::Rect) {
-        self.memory_mut(|f| f.data.insert_temp("sub_menu_rect".into(), rect))
+    fn push_sub_menu_rect(&self, id_rect: (eframe::egui::Id, eframe::egui::Rect)) {
+        self.memory_mut(|f| f.data.insert_temp("sub_menu_rect".into(), id_rect))
     }
 
-    fn get_sub_menu_rect(&self) -> Option<eframe::egui::Rect> {
+    fn get_sub_menu_rect(&self) -> Option<(eframe::egui::Id, eframe::egui::Rect)> {
         self.memory(|f| f.data.get_temp("sub_menu_rect".into()))
     }
 
-    fn push_sub_menu_id(&self, id: eframe::egui::Id) {
-        self.memory_mut(|f| f.data.insert_temp("sub_menu_id".into(), id))
-    }
-
-    fn get_sub_menu_id(&self) -> Option<eframe::egui::Id> {
-        self.memory(|f| f.data.get_temp("sub_menu_id".into()))
-    }
-}
-pub trait MenuUI {
-    fn clear_menu_pos(&self);
-    fn clear_sub_menu_rect(&self);
-}
-impl MenuUI for eframe::egui::Ui {
     fn clear_menu_pos(&self) {
         self.memory_mut(|f| {
             f.data
@@ -571,39 +588,6 @@ impl ContextMenuExt for eframe::egui::Response {
         ContextMenuBuilder::new("my_context_menu".into()).ui(&self, add_contents)
     }
 }
-
-// pub trait ContextMenu {
-//     fn md_context_menu(
-//         &mut self,
-//         add_contents: impl FnOnce(&mut eframe::egui::Ui),
-//     ) -> Option<eframe::egui::Response>;
-// }
-// impl ContextMenu for eframe::egui::Ui {
-//     fn md_context_menu(
-//         &mut self,
-//         add_contents: impl FnOnce(&mut eframe::egui::Ui),
-//     ) -> Option<eframe::egui::Response> {
-//         if self.input(|f| f.pointer.secondary_clicked()) {
-//             self.push_menu_pos(self.input(|f| f.pointer.interact_pos()))
-//         }
-//         let pos2 = self.get_menu_pos();
-//         let resp = if let Some(Some(pos2)) = pos2 {
-//             Some(
-//                 ContextMenuBuilder::new("my_context_menu".into())
-//                     .pos2(pos2)
-//                     .ui(self, add_contents),
-//             )
-//         } else {
-//             None
-//         };
-//         if let Some(response) = &resp {
-//             if response.clicked_elsewhere() {
-//                 self.close_context_menu();
-//             }
-//         }
-//         resp
-//     }
-// }
 
 pub trait PosExt {
     fn mouse_pos(&self) -> Option<eframe::epaint::Pos2>;
