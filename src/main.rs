@@ -76,59 +76,118 @@ pub struct HomePage {
 impl eframe::App for HomePage {
     fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
         eframe::egui::CentralPanel::default().show(ctx, |ui| {
-            let response = eframe::egui::TextEdit::multiline(&mut self.text)
-                .show(ui)
-                .response;
-            response.md_context_menu(|ui| {
-                if ui
-                    .menu_item_icon_and_text("Cut".into(), "✂", vec![eframe::egui::Key::A], true)
-                    .clicked()
-                {};
-                ui.sub_menu_item_icon_and_text("Copy ", "📋", true, |ui| {
-                    if ui
-                        .menu_item_with_text("Copy Body", vec![eframe::egui::Key::C], true)
-                        .clicked()
-                    {
-                        println!("1");
-                    }
-                    if ui
-                        .menu_item_with_text("Copy Right", vec![eframe::egui::Key::C], true)
-                        .clicked()
-                    {}
-                    if ui
-                        .menu_item_with_text("Copy dd", vec![eframe::egui::Key::C], true)
-                        .clicked()
-                    {}
-                });
-                ui.sub_menu_item_icon_and_text("Save", "☺", true, |ui| {
-                    if ui
-                        .menu_item_with_text("Save Body", vec![eframe::egui::Key::C], true)
-                        .clicked()
-                    {}
-                    if ui
-                        .menu_item_with_text("Save Right", vec![eframe::egui::Key::C], true)
-                        .clicked()
-                    {}
-                    if ui
-                        .menu_item_with_text("Save dd", vec![eframe::egui::Key::C], true)
-                        .clicked()
-                    {}
-                });
-                if ui
-                    .menu_item_icon_and_text(
-                        "Delete".into(),
-                        "📋",
-                        vec![eframe::egui::Key::A],
-                        true,
-                    )
-                    .clicked()
-                {};
-            });
+            ui.with_layout(
+                eframe::egui::Layout::top_down(eframe::emath::Align::Min),
+                |ui| {
+                    let response = eframe::egui::TextEdit::multiline(&mut self.text)
+                        .desired_width(f32::INFINITY)
+                        .show(ui)
+                        .response;
+
+                    response.md_context_menu(|ui| {
+                        println!("????");
+                        // if ui
+                        //     .menu_item_icon_and_text(
+                        //         "Cut".into(),
+                        //         "✂",
+                        //         vec![eframe::egui::Key::A],
+                        //         true,
+                        //     )
+                        //     .clicked()
+                        // {};
+                        ui.sub_menu_item_icon_and_text("Copy ", "📋", true, |ui| {
+                            if ui
+                                .menu_item_with_text("Copy Body", vec![eframe::egui::Key::C], true)
+                                .clicked()
+                            {
+                                println!("1");
+                            }
+                            if ui
+                                .menu_item_with_text("Copy Right", vec![eframe::egui::Key::C], true)
+                                .clicked()
+                            {}
+                            if ui
+                                .menu_item_with_text("Copy dd", vec![eframe::egui::Key::C], true)
+                                .clicked()
+                            {}
+                        });
+                        ui.sub_menu_item_icon_and_text("Save", "☺", true, |ui| {
+                            if ui
+                                .menu_item_with_text("Save Body", vec![eframe::egui::Key::C], true)
+                                .clicked()
+                            {}
+                            if ui
+                                .menu_item_with_text("Save Right", vec![eframe::egui::Key::C], true)
+                                .clicked()
+                            {}
+                            if ui
+                                .menu_item_with_text("Save dd", vec![eframe::egui::Key::C], true)
+                                .clicked()
+                            {}
+                        });
+                        if ui
+                            .menu_item_icon_and_text(
+                                "Delete".into(),
+                                "📋",
+                                vec![eframe::egui::Key::A],
+                                true,
+                            )
+                            .clicked()
+                        {};
+                    });
+
+                    ui.spacing();
+                    ui.separator();
+
+                    let resp = eframe::egui::TextEdit::multiline(&mut self.text)
+                        .desired_width(f32::INFINITY)
+                        .show(ui)
+                        .response;
+
+                    resp.md_context_menu(|ui| {
+                        if ui
+                            .menu_item_icon_and_text(
+                                "Run1".into(),
+                                "✂",
+                                vec![eframe::egui::Key::A],
+                                true,
+                            )
+                            .clicked()
+                        {};
+                        if ui
+                            .menu_item_icon_and_text(
+                                "Debug".into(),
+                                "📋",
+                                vec![eframe::egui::Key::A],
+                                true,
+                            )
+                            .clicked()
+                        {};
+                        ui.sub_menu_item_icon_and_text("NO ", "📋", true, |ui| {
+                            if ui
+                                .menu_item_with_text("NO Body", vec![eframe::egui::Key::C], true)
+                                .clicked()
+                            {
+                                println!("1");
+                            }
+                            if ui
+                                .menu_item_with_text("NO Right", vec![eframe::egui::Key::C], true)
+                                .clicked()
+                            {}
+                            if ui
+                                .menu_item_with_text("NO dd", vec![eframe::egui::Key::C], true)
+                                .clicked()
+                            {}
+                        });
+                    });
+                },
+            )
             // response.context_menu(|ui| {
             //     ui.menu_button("O", |ui| ui.button("1"));
             //     ui.menu_button("B", |ui| ui.button("2"));
             // });
         });
+        eframe::egui::TopBottomPanel::bottom("id").show(ctx, |ui| {});
     }
 }
 
@@ -147,38 +206,53 @@ impl ContextMenuBuilder {
         add_contents: impl FnOnce(&mut eframe::egui::Ui) -> R + 'c,
     ) -> Option<eframe::egui::InnerResponse<R>> {
         let ContextMenuBuilder { id } = self;
-
+        let max_size = eframe::egui::vec2(300., 0.);
         let fill = eframe::egui::Color32::from_rgb(23, 29, 30);
         if response.secondary_clicked() {
-            response.ctx.push_menu_pos(response.interact_pointer_pos())
+            response.ctx.close_context_menu();
+            let pos = if let Some(pos) = response.mouse_pos() {
+                if response.rect.width() - pos.x > max_size.x {
+                    Some(pos)
+                } else {
+                    Some(eframe::egui::Pos2::new(pos.x - 300., pos.y))
+                }
+            } else {
+                None
+            };
+            response.ctx.push_menu_pos(pos)
         }
+
         if let Some(Some(pos2)) = response.ctx.get_menu_pos() {
-            let resp = eframe::egui::Area::new(id)
-                .fixed_pos(pos2)
-                .interactable(true)
-                .order(eframe::egui::Order::Foreground)
-                .show(&response.ctx, |ui| {
-                    ui.set_max_size(eframe::egui::vec2(300., 0.));
-                    eframe::egui::Frame {
-                        inner_margin: eframe::egui::Margin::same(5.),
-                        outer_margin: eframe::egui::Margin::same(0.),
-                        rounding: eframe::egui::Rounding::same(10.),
-                        shadow: eframe::epaint::Shadow::NONE,
-                        fill,
-                        stroke: eframe::egui::Stroke::NONE,
-                    }
-                    .show(ui, |ui| {
-                        ui.with_layout(
-                            eframe::egui::Layout::top_down(eframe::emath::Align::Center),
-                            add_contents,
-                        )
-                        .inner
-                    })
-                });
-            if resp.response.clicked_elsewhere() {
-                response.ctx.close_context_menu();
+            if response.rect.contains(pos2) {
+                let resp = eframe::egui::Area::new(response.id.with(id))
+                    .fixed_pos(pos2)
+                    .interactable(true)
+                    .order(eframe::egui::Order::Foreground)
+                    .show(&response.ctx, |ui| {
+                        ui.set_max_size(max_size);
+                        eframe::egui::Frame {
+                            inner_margin: eframe::egui::Margin::same(5.),
+                            outer_margin: eframe::egui::Margin::same(0.),
+                            rounding: eframe::egui::Rounding::same(10.),
+                            shadow: eframe::epaint::Shadow::NONE,
+                            fill,
+                            stroke: eframe::egui::Stroke::NONE,
+                        }
+                        .show(ui, |ui| {
+                            ui.with_layout(
+                                eframe::egui::Layout::top_down(eframe::emath::Align::Center),
+                                add_contents,
+                            )
+                            .inner
+                        })
+                    });
+                if resp.response.clicked_elsewhere() {
+                    response.ctx.close_context_menu();
+                }
+                Some(resp.inner)
+            } else {
+                None
             }
-            Some(resp.inner)
         } else {
             None
         }
@@ -275,6 +349,7 @@ impl eframe::egui::Widget for MenuItemBuilder {
                 })
             })
             .set_sense(ui, eframe::egui::Sense::click());
+
         if resp.hovered() {
             ui.painter().rect(
                 resp.rect,
@@ -356,7 +431,7 @@ impl SubMenuItemBuilder {
                             ui.with_layout(
                                 eframe::egui::Layout::right_to_left(eframe::emath::Align::Center),
                                 |ui| {
-                                    ui.label(eframe::egui::RichText::new(">"));
+                                    ui.label("⏵");
                                 },
                             );
                         },
@@ -364,7 +439,7 @@ impl SubMenuItemBuilder {
                 })
             })
             .set_sense(ui, eframe::egui::Sense::click());
-        let sub_menu_id = Id::new(label.unwrap_or_default());
+        let sub_menu_id = resp.id.with("sub_menu");
 
         let state = ui
             .ctx()
@@ -385,7 +460,16 @@ impl SubMenuItemBuilder {
                 eframe::egui::Color32::from_rgba_premultiplied(23, 29, 30, 10),
                 eframe::egui::Stroke::NONE,
             );
-            let pos = [resp.rect.right_top().x, resp.rect.right_top().y - 5.];
+            let max_size = eframe::egui::vec2(300., 0.);
+            let pos = if let Some(Some(pos)) = ui.ctx().get_menu_pos() {
+                if ui.ctx().screen_rect().width() - pos.x - resp.rect.width() > max_size.x {
+                    [resp.rect.right_top().x, resp.rect.right_top().y - 5.]
+                } else {
+                    [resp.rect.left_top().x - 300., resp.rect.left_top().y - 5.]
+                }
+            } else {
+                [0., 0.]
+            };
 
             let resp = eframe::egui::Area::new(sub_menu_id)
                 .fixed_pos(pos)
@@ -464,6 +548,28 @@ pub trait MenuItem {
         enable: bool,
         add_contents: impl FnOnce(&mut eframe::egui::Ui),
     ) -> eframe::egui::InnerResponse<Option<eframe::egui::InnerResponse<()>>>;
+    // fn checkbox_menu_item(
+    //     &mut self,
+    //     icon: &str,
+    //     text: &str,
+    //     select: bool,
+    //     enable: bool,
+    //     add_contents: impl FnOnce(&mut eframe::egui::Ui),
+    // ) -> eframe::egui::Response;
+    // fn checkbox_icon_item(
+    //     &mut self,
+    //     icon: &str,
+    //     select: bool,
+    //     enable: bool,
+    //     add_contents: impl FnOnce(&mut eframe::egui::Ui),
+    // ) -> eframe::egui::Response;
+    // fn checkbox_text_item(
+    //     &mut self,
+    //     text: &str,
+    //     select: bool,
+    //     enable: bool,
+    //     add_contents: impl FnOnce(&mut eframe::egui::Ui),
+    // ) -> eframe::egui::Response;
 }
 impl MenuItem for eframe::egui::Ui {
     fn menu_item_icon_and_text(
